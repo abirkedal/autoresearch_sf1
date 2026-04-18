@@ -231,6 +231,11 @@ def load_data(seq_len, device):
     df = df.sort_values(["ticker", "date"]).reset_index(drop=True)
     df[FEATURE_COLS] = df[FEATURE_COLS].fillna(0.0)
 
+    # Cross-sectional target normalization: standardize returns per date
+    date_mean = df.groupby("date")[TARGET_COL].transform("mean")
+    date_std = df.groupby("date")[TARGET_COL].transform("std").clip(lower=1e-8)
+    df[TARGET_COL] = (df[TARGET_COL] - date_mean) / date_std
+
     # Standardize all features using training-period statistics
     train_mask = df["date"] < VAL_CUTOFF
     feat_mean = df.loc[train_mask, FEATURE_COLS].mean().values.astype(np.float32)
