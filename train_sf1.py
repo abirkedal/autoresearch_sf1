@@ -47,7 +47,7 @@ DROPOUT = 0.2           # dropout rate (regularization for noisy targets)
 
 # Optimization
 BATCH_SIZE = 256        # sequences per gradient step
-LR = 3e-4               # peak learning rate
+LR = 1e-4               # peak learning rate
 WEIGHT_DECAY = 0.1      # AdamW weight decay
 ADAM_BETAS = (0.9, 0.999)
 WARMUP_RATIO = 0.05     # LR warmup fraction
@@ -422,6 +422,7 @@ while True:
     with autocast_ctx:
         loss, _ = model(x, y)
     loss.backward()
+    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
 
     progress = min(total_training_time / TIME_BUDGET, 1.0)
     lrm = get_lr_multiplier(progress)
