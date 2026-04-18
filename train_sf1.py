@@ -39,7 +39,7 @@ VAL_CUTOFF = pd.Timestamp("2017-01-01")
 # ---------------------------------------------------------------------------
 
 # Model architecture
-SEQ_LEN = 64            # context window in trading days (~3 months)
+SEQ_LEN = 16            # context window in trading days (~3 weeks)
 N_LAYER = 2             # transformer layers
 N_HEAD = 2              # attention heads (head_dim = N_EMBD // N_HEAD)
 N_EMBD = 64             # model dimension
@@ -48,7 +48,7 @@ DROPOUT = 0.2           # dropout rate (regularization for noisy targets)
 # Optimization
 BATCH_SIZE = 256        # sequences per gradient step
 LR = 3e-4               # peak learning rate
-WEIGHT_DECAY = 0.01     # AdamW weight decay
+WEIGHT_DECAY = 0.1      # AdamW weight decay
 ADAM_BETAS = (0.9, 0.999)
 WARMUP_RATIO = 0.05     # LR warmup fraction
 WARMDOWN_RATIO = 0.3    # LR cosine decay fraction
