@@ -50,7 +50,7 @@ BATCH_SIZE = 256        # sequences per gradient step
 LR = 1e-4               # peak learning rate
 WEIGHT_DECAY = 0.1      # AdamW weight decay
 ADAM_BETAS = (0.9, 0.999)
-WARMUP_RATIO = 0.05     # LR warmup fraction
+WARMUP_RATIO = 0.1      # LR warmup fraction (longer warmup)
 WARMDOWN_RATIO = 0.3    # LR cosine decay fraction
 FINAL_LR_FRAC = 0.0     # final LR as fraction of peak
 
