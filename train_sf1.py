@@ -43,7 +43,7 @@ SEQ_LEN = 32            # context window in trading days (~6 weeks)
 N_LAYER = 1             # transformer layers
 N_HEAD = 2              # attention heads (head_dim = N_EMBD // N_HEAD)
 N_EMBD = 64             # model dimension
-DROPOUT = 0.2           # dropout rate (regularization for noisy targets)
+DROPOUT = 0.15          # dropout rate (between 0.1 and 0.2)
 
 # Optimization
 BATCH_SIZE = 256        # sequences per gradient step
