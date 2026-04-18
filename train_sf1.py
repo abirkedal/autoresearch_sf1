@@ -40,7 +40,7 @@ VAL_CUTOFF = pd.Timestamp("2017-01-01")
 
 # Model architecture
 SEQ_LEN = 16            # context window in trading days (~3 weeks)
-N_LAYER = 2             # transformer layers
+N_LAYER = 1             # transformer layers
 N_HEAD = 2              # attention heads (head_dim = N_EMBD // N_HEAD)
 N_EMBD = 64             # model dimension
 DROPOUT = 0.2           # dropout rate (regularization for noisy targets)
