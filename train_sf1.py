@@ -423,7 +423,7 @@ while True:
     with autocast_ctx:
         loss, _ = model(x, y)
     loss.backward()
-    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+    torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
 
     progress = min(total_training_time / TIME_BUDGET, 1.0)
     lrm = get_lr_multiplier(progress)
