@@ -47,7 +47,7 @@ DROPOUT = 0.15          # dropout rate (between 0.1 and 0.2)
 
 # Optimization
 BATCH_SIZE = 256        # sequences per gradient step
-LR = 1e-4               # peak learning rate
+LR = 1.5e-4             # peak learning rate (slightly higher)
 WEIGHT_DECAY = 0.1      # AdamW weight decay
 ADAM_BETAS = (0.9, 0.999)
 WARMUP_RATIO = 0.1      # LR warmup fraction (longer warmup)
