@@ -55,7 +55,7 @@ WARMDOWN_RATIO = 0.3    # LR cosine decay fraction
 FINAL_LR_FRAC = 0.0     # final LR as fraction of peak
 
 # Loss
-HUBER_DELTA = 0.02      # ~1 std of daily returns; clips outlier gradients
+HUBER_DELTA = 0.01      # tighter outlier gradient clipping
 
 # Training
 TIME_BUDGET = 300       # wall-clock training seconds
