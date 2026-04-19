@@ -111,7 +111,7 @@ class CausalSelfAttention(nn.Module):
         q, k = norm(q), norm(k)
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
         y = F.scaled_dot_product_attention(
-            q, k, v, is_causal=False,
+            q, k, v, is_causal=True,
             dropout_p=self.resid_dropout.p if self.training else 0.0,
         )
         y = y.transpose(1, 2).contiguous().view(B, T, -1)
