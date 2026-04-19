@@ -235,6 +235,7 @@ def load_data(seq_len, device):
     date_mean = df.groupby("date")[TARGET_COL].transform("mean")
     date_std = df.groupby("date")[TARGET_COL].transform("std").clip(lower=1e-8)
     df[TARGET_COL] = (df[TARGET_COL] - date_mean) / date_std
+    df[TARGET_COL] = df[TARGET_COL].clip(-3, 3)
 
     # Standardize all features using training-period statistics
     train_mask = df["date"] < VAL_CUTOFF
