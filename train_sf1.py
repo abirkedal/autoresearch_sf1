@@ -25,6 +25,8 @@ import torch.nn.functional as F
 # ---------------------------------------------------------------------------
 
 PARQUET_PATH = Path("~/claude_projects/sf1_models/sf1_shortlist_with_returns.parquet").expanduser()
+SF1_CSV_PATH = Path("~/claude_projects/sf1_models/SHARADAR_SF1_ffa7f0dd2c8e187f52e1b691e6e11b55.csv").expanduser()
+USE_FULL_SF1 = True  # True = all ~100 SF1 features, False = 10-feature shortlist
 FEATURE_COLS = [
     "bp", "ep", "fcf_yield", "gp_over_assets", "roic",
     "accruals", "log_marketcap", "asset_growth_yoy", "net_issuance",
@@ -40,7 +42,7 @@ VAL_CUTOFF = pd.Timestamp("2017-01-01")
 
 # Model architecture
 SEQ_LEN = 32            # context window in trading days (~6 weeks)
-N_LAYER = 1             # transformer layers
+N_LAYER = 0             # 0 = linear model (no transformer blocks)
 N_HEAD = 1              # single attention head (head_dim=64)
 N_EMBD = 64             # model dimension
 DROPOUT = 0.05          # dropout rate (causal mask already regularizes)
@@ -225,11 +227,42 @@ class TimeSeriesTransformer(nn.Module):
 # Data loading
 # ---------------------------------------------------------------------------
 
+def _load_full_sf1_features(daily_df):
+    """Merge all numeric SF1 features onto the daily panel via point-in-time join."""
+    print(f"Loading full SF1 from {SF1_CSV_PATH}...")
+    sf1 = pd.read_csv(SF1_CSV_PATH, parse_dates=["datekey"], low_memory=False)
+    sf1 = sf1[sf1["dimension"] == "ART"].copy()
+    meta_cols = {"ticker", "dimension", "calendardate", "datekey", "reportperiod", "lastupdated"}
+    numeric_cols = [c for c in sf1.select_dtypes(include=[np.number]).columns if c not in meta_cols]
+    sf1 = sf1[["ticker", "datekey"] + numeric_cols].copy()
+    sf1 = sf1.sort_values(["ticker", "datekey"]).drop_duplicates(["ticker", "datekey"], keep="last")
+    # Forward-fill within ticker so stale values carry forward
+    sf1[numeric_cols] = sf1.groupby("ticker", sort=False)[numeric_cols].ffill()
+    # Point-in-time merge: for each (date, ticker), get most recent fundamentals
+    daily_df["date"] = pd.to_datetime(daily_df["date"]).astype("datetime64[ns]")
+    sf1["datekey"] = pd.to_datetime(sf1["datekey"]).astype("datetime64[ns]")
+    daily_df = daily_df.sort_values("date")
+    sf1 = sf1.sort_values("datekey")
+    merged = pd.merge_asof(
+        daily_df, sf1, left_on="date", right_on="datekey",
+        by="ticker", direction="backward",
+    )
+    merged["days_since_datekey"] = (merged["date"] - merged["datekey"]).dt.days
+    feat_cols = numeric_cols + ["days_since_datekey"]
+    print(f"Full SF1: {len(feat_cols)} features")
+    return merged, feat_cols
+
+
 def load_data(seq_len, device):
     print(f"Loading {PARQUET_PATH}")
     df = pd.read_parquet(PARQUET_PATH)
     df = df.sort_values(["ticker", "date"]).reset_index(drop=True)
-    df[FEATURE_COLS] = df[FEATURE_COLS].fillna(0.0)
+
+    if USE_FULL_SF1:
+        base = df[["date", "ticker", TARGET_COL]].copy()
+        df, feat_cols = _load_full_sf1_features(base)
+    else:
+        feat_cols = FEATURE_COLS
 
     # Cross-sectional target normalization: standardize returns per date
     date_mean = df.groupby("date")[TARGET_COL].transform("mean")
@@ -237,12 +270,16 @@ def load_data(seq_len, device):
     df[TARGET_COL] = (df[TARGET_COL] - date_mean) / date_std
     df[TARGET_COL] = df[TARGET_COL].clip(-3, 3)
 
-    # Standardize all features using training-period statistics
+    n_feat = len(feat_cols)
+
+    # Compute train-period statistics on non-missing values, then fill NaN → mean (z=0)
     train_mask = df["date"] < VAL_CUTOFF
-    feat_mean = df.loc[train_mask, FEATURE_COLS].mean().values.astype(np.float32)
+    feat_mean = df.loc[train_mask, feat_cols].mean().values.astype(np.float32)
     feat_std = np.clip(
-        df.loc[train_mask, FEATURE_COLS].std().values.astype(np.float32), 1e-8, None
+        df.loc[train_mask, feat_cols].std().values.astype(np.float32), 1e-8, None
     )
+    for i, col in enumerate(feat_cols):
+        df[col] = df[col].fillna(feat_mean[i])
 
     cutoff_np = np.datetime64(VAL_CUTOFF)
     ticker_info = []
@@ -258,7 +295,7 @@ def load_data(seq_len, device):
         cutoff_idx = int(np.searchsorted(dates, cutoff_np))
         n_train = max(0, min(cutoff_idx - seq_len + 1, n_windows))
         n_val = n_windows - n_train
-        feats = (group[FEATURE_COLS].values.astype(np.float32) - feat_mean) / feat_std
+        feats = (group[feat_cols].values.astype(np.float32) - feat_mean) / feat_std
         tgts = group[TARGET_COL].values.astype(np.float32)
         ticker_info.append((feats, tgts, n_train, n_val))
         n_train_total += n_train
@@ -266,9 +303,9 @@ def load_data(seq_len, device):
 
     print(f"Building {n_train_total:,} train + {n_val_total:,} val windows (seq_len={seq_len})")
 
-    train_features = np.empty((n_train_total, seq_len, N_FEATURES), dtype=np.float32)
+    train_features = np.empty((n_train_total, seq_len, n_feat), dtype=np.float32)
     train_targets = np.empty((n_train_total, seq_len), dtype=np.float32)
-    val_features = np.empty((n_val_total, seq_len, N_FEATURES), dtype=np.float32)
+    val_features = np.empty((n_val_total, seq_len, n_feat), dtype=np.float32)
     val_targets = np.empty((n_val_total, seq_len), dtype=np.float32)
 
     ti = vi = 0
@@ -291,7 +328,7 @@ def load_data(seq_len, device):
     val_f = torch.from_numpy(val_features).to(device)
     val_t = torch.from_numpy(val_targets).to(device)
     print(f"Data on {device}: train {train_f.shape}, val {val_f.shape}")
-    return train_f, train_t, val_f, val_t
+    return train_f, train_t, val_f, val_t, n_feat
 
 
 def make_train_iter(features, targets, batch_size):
@@ -362,9 +399,9 @@ torch.set_float32_matmul_precision("high")
 device = torch.device("cuda")
 autocast_ctx = torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16)
 
-train_f, train_t, val_f, val_t = load_data(SEQ_LEN, device)
+train_f, train_t, val_f, val_t, n_feat = load_data(SEQ_LEN, device)
 
-config = ModelConfig()
+config = ModelConfig(n_features=n_feat)
 print(f"Model config: {asdict(config)}")
 
 with torch.device("meta"):

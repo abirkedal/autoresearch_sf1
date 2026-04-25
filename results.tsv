@@ -1,20 +1,9 @@
 commit	val_spearman_ic	memory_gb	status	description
-90d8278	0.013847	1.4	keep	baseline (narrower MLP 2x + single head + seq32)
-99ea467	0.013847	1.5	discard	feature noise injection (std=0.05) - tied
-d75624b	0.011594	1.4	discard	aggressive warmdown (0.9 ratio)
-2c8f6cf	0.013436	1.5	discard	Pearson correlation loss (weight=0.1)
-b6478ab	0.012103	1.4	discard	weight_decay=0.05 (too little regularization)
-9e0cce1	0.008180	1.5	discard	SiLU activation (much worse than ReLU²)
-697e1c8	0.013992	1.4	keep	LR=1.5e-4
-3a74c4a	0.015237	1.4	keep	winsorize targets at ±3 std
-e2ea264	0.013876	1.4	discard	tighter winsorization (±2 std)
-ee528c8	0.011460	1.5	discard	batch_size=128 (noisy gradients)
-c48925f	0.004812	1.5	discard	N_LAYER=2 (overfitting)
-e1c3727	0.012007	1.4	discard	MSE loss (Huber still better with winsorized targets)
-4ead72a	0.012236	1.4	discard	dropout=0.2 (too much)
-9bdd1bc	0.010319	1.4	discard	position-weighted loss
-445c49c	0.014022	1.4	discard	LR floor at 5% (FINAL_LR_FRAC=0.05)
-8148dca	0.007814	1.1	discard	SEQ_LEN=24 (lost temporal context)
-f9e46cd	0.005196	1.4	discard	Huber delta=0.5 (too large)
-ef091cd	0.013969	1.4	discard	Huber delta=0.05 (still too large)
-0d85cab	0.014773	1.5	discard	skip connection (untrained - not in optimizer)
+63cf0e9	0.005883	1.4	keep	causal attention baseline
+4286154	0.006046	2.8	discard	SEQ_LEN=64 (marginal gain for 2x VRAM)
+8b1576f	0.004824	1.5	discard	N_LAYER=2 (still overfits)
+b5c9e3e	0.005585	1.4	discard	loss on last half positions only
+a06f3c0	0.010080	1.5	keep	dropout=0.05
+b41096f	0.009904	1.5	discard	dropout=0.02 (too little)
+8ddcb26	0.008445	1.5	discard	weight_decay=0.05 (lower WD with causal mask)
+3417700	0.007221	1.4	discard	LR=2e-4 (too high with causal+dropout)
